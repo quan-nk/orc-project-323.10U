@@ -1,0 +1,248 @@
+---
+title: "323.10U: Covid-19 Cases in Taiwan"
+---
+
+packages_to_install <- c("tidyverse", "dplyr", "arules", "arulesViz", "table1", "ggplot2", "readxl")
+install.packages(packages_to_install, dependencies = TRUE)
+
+sapply(packages_to_install, require, character.only = TRUE)
+
+setwd("G:/My Drive/01 Scientific Projects/ORC 323.10U Taiwan registry COVID-19/Data analysis")
+
+
+dat <- read_excel("32310U_04112021_version15.xlsx")
+attach(dat)
+head(dat)
+names(dat) 
+
+
+
+dat1 <- data.frame(Asymptomatic_code, Case_Type,The_Level_cases, Number_of_Cluster, new_tests, new_tests_per_thousand, new_tests_smoothed, tests_per_case, positive_rate, stringency_index.x)
+
+dat2 <- na.omit(dat1)
+
+write.csv(dat2, 'Model_asymptomatic.csv')
+
+dat3 <- read.csv('Model_asymptomatic_version2.csv', header = T)
+attach(dat3)
+
+x <- data.frame(Case_Type,The_Level_cases, Number_of_Cluster, new_tests, new_tests_per_thousand, new_tests_smoothed, tests_per_case, positive_rate, stringency_index.x)
+
+y <- Asymptomatic_code
+
+
+library(BMA)
+bma.search <- bic.glm(x, y, strict = F, OR = 20, glm.family = "binomial")
+
+summary(bma.search)
+
+
+positive_rate_100 <- positive_rate*100
+
+
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+m1 <- glm(y ~  Case_Type + The_Level_cases + Number_of_Cluster + positive_rate_100 + stringency_index.x, data = dat3, family = binomial)
+summary(m1)
+tab_model(
+  m1, 
+  p.val = "kr", 
+  show.zeroinf = T, 
+  show.se = T, 
+  show.df = T, 
+  show.re.var = T,
+  # to better distinguish the model columns
+  CSS = list(
+    modelcolumn1 = "background-color: #f0f0f0;", 
+    modelcolumn3 = "background-color: #f0f0f0;", 
+    modelcolumn5 = "background-color: #f0f0f0;"
+  )
+)
+
+
+#Table 1
+
+
+#CompareTable
+library(compareGroups)
+restab1 <- createTable(compareGroups(Laynhiem3level ~  Age1 + Gender + Case.Type + Total_code1 + Chills1 + Breathing1 + Common_Cold1 + Throat1 + Vomiting_code1 + Abdominal.Symptoms_code1 + Weakness_code1 + Body_pain1 + Death_code1 + Temperature_code1 + Cough1 + Chest_pain1 + Nose1 + Taste_smell1 + Taste_smell_check + Diarrhoea_code1 + Eye.Symptoms_code1 + Fatigue_code1 + Total1 + Total2 + Total + Total1_code1 + Total2_code1 + Total_code1, data = dat))
+
+
+export2word(restab1, file='Results1.docx')
+
+#Table 2
+
+#CompareTable
+library(compareGroups)
+restab2 <- createTable(compareGroups(Total_code ~ Age1 + Gender + Case.Type + Death_code1 + Laynhiem3level, data = dat))
+
+
+export2word(restab2, file='Results2.docx')
+
+
+createTable(compareGroups(Laynhiem3level ~ Death_code1, data = dat))
+
+#Table 3
+detach(dat)
+
+dat1 <- read_excel('32310U_04112021_version11_Level02.xlsx')
+attach(dat1)
+head(dat1)
+names(dat1) 
+
+
+CreatTable2 <- data.frame(Number_of_Cluster,Total_symptoms,Severe_symptoms, Case_Type, The_Level_cases)
+
+
+CreatTable21 <-na.omit(CreatTable2)
+
+
+
+write.csv(CreatTable21, "RuleAssociation.csv")
+
+
+
+dat2 <- read.csv("RuleAssociation.csv", header = T)
+names(dat2)
+
+
+
+table3 <-dat2%>%  
+  group_by(Number_of_Cluster,Total_symptoms,Severe_symptoms, Case_Type, The_Level_cases)%>%
+  tally()%>%
+  knitr::kable()
+
+
+library(arsenal)
+library(magrittr)
+data(mockstudy)
+tmpdir <- tempdir()
+
+write2html(
+  table3, paste0(tmpdir, "/dtest.freqlist.htm"), quiet = TRUE,
+  title = "My test table",      # passed to summary.tableby
+  labelTranslations = dat, # passed to summary.tableby
+  total = FALSE                 # passed to summary.tableby
+)
+
+
+
+
+# Plot Figure 1
+
+
+
+
+df <- read_excel('data_model_version3.xlsx')
+attach(df)
+
+
+x <- data.frame(Case_Type, Most_common_symptoms_code, Other_symptoms, Total_symptoms, Body_Temperature_code2, Asymptomatic_code2, Cough_code2, Breathing_code2, new_tests_per_thousand, Death_code2)
+
+
+
+Number_of_Cluster1 <- Number_of_Cluster - 1
+y <- Number_of_Cluster
+y1 <- Number_of_Cluster1
+
+library(MASS)
+# Fit the full model 
+full.model <- lm(y ~., data = x)
+# Stepwise regression model
+step.model <- stepAIC(full.model, direction = "both", 
+                      trace = FALSE)
+summary(step.model)
+
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+m1 <- lm(Number_of_Cluster ~ Case_Type + Body_Temperature_code2 + Asymptomatic_code2 + new_tests_per_thousand + Death_code2)
+summary(m1)
+confint(m1)
+tab_model(
+  m1, 
+  p.val = "kr", 
+  show.zeroinf = T, 
+  show.se = T, 
+  show.df = T, 
+  show.re.var = T,
+  # to better distinguish the model columns
+  CSS = list(
+    modelcolumn1 = "background-color: #f0f0f0;", 
+    modelcolumn3 = "background-color: #f0f0f0;", 
+    modelcolumn5 = "background-color: #f0f0f0;"
+  )
+)
+ 
+
+
+
+
+detach(dat1)
+
+library(readxl)
+library(ggplot2)
+dat3 <- read_excel("32310U_04112021_version11_Level02 - Copy - Copy.xlsx")
+attach(dat3)
+head(dat3)
+names(dat3) 
+library(compareGroups)
+
+
+dat3$Checked <- paste0(Most_common_symptoms, The_Level_cases)
+
+p <- ggplot(dat3, aes(x=Most_common_symptoms_code, y=Number_of_Cluster, fill = Case_Type, color = Case_Type))
+p1 <- p + geom_point(size = 10) + theme_bw(base_size = 25) + geom_smooth(aes(col=Case_Type), method = "loess")
+p1
+ 
+
+p <- ggplot(dat3, aes(x=Total_symptoms, y=Number_of_Cluster, fill = Most_common_symptoms, color = Most_common_symptoms))
+p1 <- p + geom_point(size = 10) + theme_bw(base_size = 25) + geom_smooth(aes(col=Case_Type), method = "loess")
+p1
+ 
+
+
+
+
+
+
+library(readxl)
+library(ggplot2)
+dat3 <- read_excel("32310U_04112021_version11_Level2_version2.xlsx")
+attach(dat3)
+head(dat3)
+names(dat3) 
+library(compareGroups)
+
+
+dat3$Checked <- paste0(Most_common_symptoms, The_Level_cases)
+
+p <- ggplot(dat3, aes(x=Most_common_symptoms_code, y=Number_of_Cluster, fill = Case_Type, color = Case_Type))
+p1 <- p + geom_point(size = 10) + theme_bw(base_size = 25) + geom_smooth(aes(col=Case_Type), method = "loess")
+p1
+ 
+
+p <- ggplot(dat3, aes(x=Total_symptoms, y=Number_of_Cluster, fill = Most_common_symptoms, color = Most_common_symptoms))
+p1 <- p + geom_point(size = 10) + theme_bw(base_size = 25) + geom_smooth(aes(col=Case_Type), method = "loess")
+p1
+ 
+
+
+library(BMA)
+bma.search2 <- bicreg(x, y, strict = F, OR = 20)
+summary(bma.search2)
+
+
+library(xlsx)
+write.xlsx2(
+     dat3,
+     file = "COVID19 Cases in Taiwan V6.0 by I Chun Hung Coded_version_6_Modify_5_laynhiem_version2.xlsx",
+     sheetName = "Sheet1",
+     col.names = TRUE,
+     row.names = TRUE,
+     append = FALSE
+)
+
+ 
+
